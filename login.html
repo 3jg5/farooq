@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام إدارة المدارس الذكي - مدرسة الفاروق</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+
+:root {
+  --cyan:#00f2ff; --purple:#7b2ff7; --gold:#ffd700;
+  --dark:#05080f; --glass:rgba(255,255,255,.07); --gborder:rgba(255,255,255,.12);
+}
+
+/* ══ BODY ══ */
+body {
+  font-family:'Cairo',sans-serif;
+  background:#000;
+  color:#e8f4ff;
+  min-height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+
+/* ══ SLIDESHOW BACKGROUND ══ */
+.bg-slideshow {
+  position:fixed;
+  inset:0;
+  z-index:0;
+}
+.bg-slide {
+  position:absolute;
+  inset:0;
+  background-size:cover;
+  background-position:center;
+  opacity:0;
+  transition:opacity 1.8s ease-in-out;
+}
+.bg-slide.show { opacity:1; }
+
+/* تعتيم الجانب الأيسر */
+.bg-dark {
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(to left, rgba(0,0,0,.02) 0%, rgba(0,0,0,.28) 50%, rgba(0,0,0,.55) 100%);
+  z-index:1;
+}
+
+/* ══ الرموز العلمية ══ */
+#eduWrap {
+  position:fixed;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  overflow:hidden;
+  user-select:none;
+}
+.sym {
+  position:absolute;
+  bottom:-80px;
+  opacity:0;
+  font-weight:900;
+  animation:floatUp linear infinite;
+  text-shadow: 0 0 20px currentColor;
+}
+@keyframes floatUp {
+  0%   {transform:translateY(0) rotate(0deg);   opacity:0;}
+  8%   {opacity:var(--op,.3);}
+  88%  {opacity:var(--op,.3);}
+  100% {transform:translateY(-110vh) rotate(var(--r,10deg)); opacity:0;}
+}
+
+/* ══ ORBS ══ */
+.orbs { position:fixed; inset:0; z-index:2; pointer-events:none; }
+.orb {
+  position:absolute; border-radius:50%;
+  filter:blur(90px); opacity:.22;
+  animation:drift ease-in-out infinite alternate;
+}
+.o1{width:500px;height:500px;background:radial-gradient(circle,#00f2ff,transparent 70%);top:-120px;right:-80px;animation-duration:22s;}
+.o2{width:400px;height:400px;background:radial-gradient(circle,#7b2ff7,transparent 70%);bottom:-100px;left:-60px;animation-duration:18s;animation-direction:alternate-reverse;}
+.o3{width:240px;height:240px;background:radial-gradient(circle,#ff006e,transparent 70%);top:35%;left:15%;animation-duration:26s;opacity:.1;}
+@keyframes drift {
+  0%{transform:translate(0,0) scale(1);}
+  100%{transform:translate(30px,-25px) scale(1.06);}
+}
+
+/* ══ SCAN LINE ══ */
+.scan {
+  position:fixed;top:0;left:0;right:0;height:2px;z-index:2;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--purple),transparent);
+  opacity:.5;animation:scanMove 5s ease-in-out infinite;
+}
+@keyframes scanMove{0%{top:0%}100%{top:100%}}
+
+/* ══ GRID ══ */
+.grid-bg {
+  position:fixed;inset:0;z-index:2;
+  background-image:
+    linear-gradient(rgba(0,242,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,242,255,.04) 1px, transparent 1px);
+  background-size:60px 60px;
+  pointer-events:none;
+}
+
+/* ══ LAYOUT ══ */
+.page {
+  position:relative;
+  z-index:10;
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:1fr 480px;
+  align-items:stretch;
+}
+
+/* ══ BRAND SIDE ══ */
+.brand {
+  padding:60px 50px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:28px;
+  overflow-y:auto;
+}
+.school-logo-circle {
+  width:110px; height:110px;
+  border-radius:50%;
+  border:2px solid rgba(0,242,255,.5);
+  overflow:hidden;
+  box-shadow:0 0 30px rgba(0,242,255,.25);
+  position:relative;
+}
+.school-logo-circle img { width:100%;height:100%;object-fit:cover; }
+.ring1,.ring2 {
+  position:absolute; border-radius:50%;
+  animation:spin linear infinite;
+}
+.ring1 { inset:-14px; border:1.5px solid rgba(0,242,255,.3); animation-duration:10s; }
+.ring2 { inset:-26px; border:1px dashed rgba(0,242,255,.15); animation-duration:20s; animation-direction:reverse; }
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.brand-title {
+  font-family:'Orbitron',sans-serif;
+  font-size:38px; font-weight:900;
+  background:linear-gradient(135deg,#ffffff 0%,#a0f0ff 40%,#00f2ff 70%,#7b2ff7 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  line-height:1.3;
+  /* تأثير ثلاثي الأبعاد */
+  filter:
+    drop-shadow(0 2px 0 rgba(0,180,220,.8))
+    drop-shadow(0 4px 0 rgba(0,100,180,.5))
+    drop-shadow(0 8px 20px rgba(0,242,255,.35));
+  letter-spacing:-0.5px;
+}
+.brand-sub {
+  font-size:21px; opacity:1; font-weight:800; color:#e8f8ff;
+  text-shadow:0 2px 12px rgba(0,242,255,.4), 0 1px 3px rgba(0,0,0,.6);
+}
+.brand-sub-small {
+  font-size:17px; opacity:.9; font-weight:700; color:#b8e8ff;
+  text-shadow:0 1px 8px rgba(0,200,255,.3);
+  margin-top:4px;
+}
+.brand-desc {
+  font-size:17px; opacity:1; line-height:1.9; max-width:500px; color:#d8f0ff;
+  font-weight:600;
+  text-shadow:0 1px 6px rgba(0,0,0,.7);
+}
+.brand-tags {
+  display:flex;gap:12px;flex-wrap:wrap;
+}
+.tag {
+  padding:9px 20px; border-radius:22px;
+  border:1.5px solid rgba(0,242,255,.45);
+  background:rgba(0,242,255,.12);
+  font-size:15px; font-weight:800; color:#00f2ff;
+  text-shadow:0 0 10px rgba(0,242,255,.5);
+  box-shadow:0 0 12px rgba(0,242,255,.15), inset 0 1px 0 rgba(255,255,255,.1);
+  letter-spacing:.3px;
+}
+
+/* ══ FORM SIDE ══ */
+.form-side {
+  min-height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  padding:40px 32px;
+  background:rgba(5,8,15,.08);
+  backdrop-filter:blur(1px);
+  -webkit-backdrop-filter:blur(1px);
+  border-right:1px solid rgba(0,242,255,.15);
+  position:relative;
+}
+.form-box {
+  width:100%; max-width:400px;
+  background:rgba(5,8,20,.25);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(0,242,255,.30);
+  border-radius:22px;
+  padding:40px 36px;
+  box-shadow:0 8px 50px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.10);
+}
+.form-header {
+  text-align:center; margin-bottom:32px;
+}
+.form-title {
+  font-family:'Orbitron',sans-serif;
+  font-size:30px; font-weight:900; color:var(--cyan);
+  margin-bottom:10px; text-shadow:0 0 30px rgba(0,242,255,.7), 0 2px 8px rgba(0,0,0,.5);
+}
+.form-sub { font-size:13px; opacity:.5; }
+
+/* Form inputs */
+.field {
+  margin-bottom:18px;
+}
+.field label {
+  display:block; font-size:16px; font-weight:900;
+  opacity:1; margin-bottom:10px; letter-spacing:.3px; color:#a0e8ff;
+}
+.field input {
+  width:100%; padding:13px 16px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  color:#e8f4ff;
+  font-family:'Cairo',sans-serif; font-size:14px;
+  outline:none; transition:border-color .2s, box-shadow .2s;
+}
+.field input:focus {
+  border-color:var(--cyan);
+  box-shadow:0 0 0 3px rgba(0,242,255,.1);
+}
+.pw-wrap { position:relative; }
+.pw-wrap input { padding-left:44px; }
+.pw-toggle {
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; color:rgba(255,255,255,.4);
+  padding:4px;
+}
+.pw-toggle:hover { color:var(--cyan); }
+
+.btn-login {
+  width:100%; padding:14px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  border:none; border-radius:12px;
+  color:#000; font-family:'Cairo',sans-serif;
+  font-size:19px; font-weight:900; letter-spacing:.5px;
+  cursor:pointer; transition:all .25s;
+  position:relative; overflow:hidden;
+  margin-top:8px;
+}
+.btn-login::after {
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent,rgba(255,255,255,.15),transparent);
+  transform:translateX(-100%); transition:transform .4s;
+}
+.btn-login:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(0,242,255,.3); }
+.btn-login:hover::after { transform:translateX(100%); }
+.btn-login:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+
+.alert-box {
+  display:none; padding:12px 16px; border-radius:10px;
+  font-size:13px; font-weight:700; margin-bottom:16px;
+  border:1px solid transparent;
+}
+.alert-box.error   { display:flex; gap:8px; background:rgba(255,51,102,.1); border-color:rgba(255,51,102,.3); color:#ff3366; }
+.alert-box.success { display:flex; gap:8px; background:rgba(0,255,136,.1); border-color:rgba(0,255,136,.3); color:#00ff88; }
+.alert-box.info    { display:flex; gap:8px; background:rgba(0,242,255,.08); border-color:rgba(0,242,255,.2); color:var(--cyan); }
+
+.divider {
+  text-align:center; margin:20px 0; position:relative;
+  font-size:11px; opacity:.35; font-weight:700;
+}
+.divider::before,.divider::after {
+  content:''; position:absolute; top:50%;
+  width:40%; height:1px; background:rgba(255,255,255,.12);
+}
+.divider::before { right:0; } .divider::after { left:0; }
+
+.forgot-link {
+  display:block; text-align:center; font-size:12px;
+  color:var(--cyan); opacity:.6; cursor:pointer;
+  margin-top:14px; font-weight:700;
+  transition:opacity .2s;
+}
+.forgot-link:hover { opacity:1; }
+
+/* Loading spinner */
+.spinner {
+  display:none; width:18px; height:18px;
+  border:2px solid rgba(0,0,0,.3); border-top-color:#000;
+  border-radius:50%; animation:spin .7s linear infinite;
+  margin:0 auto;
+}
+
+/* Views */
+.view { display:none; }
+.view.active { display:block; }
+
+/* Mobile */
+@media(max-width:900px){
+  .page{grid-template-columns:1fr;min-height:100vh;}
+  .brand{display:none;}
+  .form-side{min-height:100vh;border:none;background:rgba(5,8,15,.35);backdrop-filter:blur(4px);padding:40px 20px 100px;}
+}
+@media(max-height:700px){
+  .form-side{align-items:flex-start;padding-top:30px;}
+  .brand{justify-content:flex-start;padding-top:40px;}
+}
+.btn-login.loading #loginBtnText,.btn-login.loading #forgotBtnText{display:none}
+.btn-login.loading .spinner{display:block}
+</style>
+</head>
+<body>
+
+<!-- خلفية الصور المتعاقبة -->
+<div class="bg-slideshow">
+  <div class="bg-slide" style="background-image:url('img/blogin1.png')"></div>
+  <div class="bg-slide" style="background-image:url('img/blogin2.png')"></div>
+  <div class="bg-slide" style="background-image:url('img/blogin3.png')"></div>
+  <div class="bg-dark"></div>
+</div>
+
+<!-- شبكة -->
+<div class="grid-bg"></div>
+
+<!-- كرات ضوئية -->
+<div class="orbs">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+</div>
+
+<!-- رموز علمية طافية -->
+<div id="eduWrap"></div>
+
+<!-- خط المسح -->
+<div class="scan"></div>
+
+<!-- المحتوى -->
+<div class="page">
+
+  <!-- الجانب الأيسر - العلامة التجارية -->
+  <div class="brand">
+    <div style="position:relative;width:110px;">
+      <div class="ring1"></div>
+      <div class="ring2"></div>
+      <div class="school-logo-circle">
+        <img src="img/school-logo.jpg" alt="شعار المدرسة" onerror="this.style.display='none'">
+      </div>
+    </div>
+
+    <div>
+      <div class="brand-title">نظام إدارة المدارس الذكي</div>
+      <div class="brand-sub">مدرسة الفاروق للتعليم الأساسي</div>
+      <div class="brand-sub-small">الخابورة - محافظة شمال الباطنة - سلطنة عُمان</div>
+    </div>
+
+    <!-- بطاقة ترحيب العام الدراسي الجديد -->
+    <div style="background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(251,191,36,.04));border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:14px 18px;margin-bottom:12px">
+      <div style="font-size:10px;color:rgba(251,191,36,.6);letter-spacing:2px;margin-bottom:4px">◆ العام الدراسي الجديد</div>
+      <div style="font-size:1.3rem;font-weight:900;color:#fbbf24;line-height:1.2"> مرحباً بعام 2026/2027</div>
+      <div style="font-size:10px;color:rgba(200,232,255,.6);margin-top:4px">1448/1449 هـ — الفصل الدراسي الأول</div>
+      <div style="height:1px;background:rgba(251,191,36,.2);margin:10px 0"></div>
+      <div style="font-size:10px;color:rgba(200,232,255,.7);line-height:1.8">
+        نتمنى للجميع عاماً دراسياً موفقاً مليئاً بالعطاء والإنجاز ✨
+      </div>
+    </div>
+
+    <div class="brand-desc">
+      منظومة إدارية متكاملة وذكية تربط المعلمين والإداريين والطلاب في بيئة رقمية واحدة،
+      بأحدث تقنيات الحضور والغياب والتقارير الفورية.
+    </div>
+
+    <div class="brand-tags">
+      <span class="tag"> إدارة الغياب</span>
+      <span class="tag"> التقارير الفورية</span>
+      <span class="tag"> الجداول الذكية</span>
+      <span class="tag"> البوابة التعليمية</span>
+      <span class="tag"> المخالفات</span>
+    </div>
+  </div>
+
+  <!-- الجانب الأيمن - نموذج الدخول -->
+  <div class="form-side">
+    <div class="form-box">
+
+      <!-- View: Login -->
+      <div id="view-login" class="view active">
+
+        <div class="form-header">
+          <div class="form-title"> تسجيل الدخول</div>
+          <div class="form-sub"> العام الدراسي 2026/2027 — مرحباً بك في بوابتك التعليمية</div>
+        </div>
+
+        <div id="loginAlert" class="alert-box">
+          <span id="loginAlertIcon"></span>
+          <span id="loginAlertMsg"></span>
+        </div>
+
+        <form id="loginForm">
+          <div class="field">
+            <label>البريد الإلكتروني أو الرقم المدني</label>
+            <input type="text" id="loginEmail" placeholder="example@school.edu.om" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <label>كلمة المرور</label>
+            <div class="pw-wrap">
+              <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
+              <button type="button" class="pw-toggle" id="pwToggle">
+                <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-login" id="loginBtn">
+            <span id="loginBtnText"> دخول</span>
+            <div class="spinner" id="loginSpinner"></div>
+          </button>
+        </form>
+
+        <span class="forgot-link" onclick="showView('forgot')"> نسيت كلمة المرور؟</span>
+
+      </div><!-- /view-login -->
+
+      <!-- View: Forgot -->
+      <div id="view-forgot" class="view">
+        <div class="form-header">
+          <div class="form-title"> استعادة كلمة المرور</div>
+          <div class="form-sub">أدخل بريدك الإلكتروني لإرسال رابط الاستعادة</div>
+        </div>
+
+        <div id="forgotAlert" class="alert-box">
+          <span id="forgotAlertIcon"></span>
+          <span id="forgotAlertMsg"></span>
+        </div>
+
+        <form id="forgotForm">
+          <div class="field">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="forgotEmail" placeholder="example@school.edu.om" required>
+          </div>
+          <button type="submit" class="btn-login" id="forgotBtn">
+            <span id="forgotBtnText"> إرسال رابط الاستعادة</span>
+            <div class="spinner" id="forgotSpinner"></div>
+          </button>
+        </form>
+        <span class="forgot-link" onclick="showView('login')"> العودة لتسجيل الدخول</span>
+      </div><!-- /view-forgot -->
+
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<footer style="position:fixed;bottom:0;left:0;right:0;z-index:20;text-align:center;padding:12px 16px;font-family:'Cairo',sans-serif;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);border-top:1px solid rgba(0,242,255,.1);">
+  <span style="font-size:12px;font-weight:700;color:rgba(0,242,255,.7)"> جميع الحقوق محفوظة للأستاذ نادر الخوالدي</span>
+  <span style="opacity:.4;margin:0 8px">|</span>
+  <span style="font-size:11px;opacity:.55;color:#c8e8ff">المنصة التعليمية لإدارة المدارس 2026/2027</span>
+</footer>
+
+<script>
+// ---------------------------------------------------
+//  VIEW MANAGER
+// ---------------------------------------------------
+function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + name)?.classList.add('active');
+    // Clear alerts on switch
+    hideAlert('loginAlert');
+    hideAlert('forgotAlert');
+}
+
+// ---------------------------------------------------
+//  ALERT HELPERS
+// ---------------------------------------------------
+function showAlert(id, msg, type = 'error') {
+    const box  = document.getElementById(id);
+    const icon = document.getElementById(id + 'Icon');
+    const msgEl= document.getElementById(id + 'Msg');
+    if (!box) return;
+    box.className = 'alert-box ' + type;
+    if (icon)  icon.textContent  = type === 'success' ? '' : '';
+    if (msgEl) msgEl.textContent = msg;
+}
+function hideAlert(id) {
+    const box = document.getElementById(id);
+    if (box) box.className = 'alert-box';
+}
+
+// ---------------------------------------------------
+//  PASSWORD TOGGLE
+// ---------------------------------------------------
+const pwInput  = document.getElementById('loginPassword');
+const pwToggle = document.getElementById('pwToggle');
+const eyeIcon  = document.getElementById('eyeIcon');
+
+pwToggle.addEventListener('click', () => {
+    const show = pwInput.type === 'password';
+    pwInput.type = show ? 'text' : 'password';
+    eyeIcon.innerHTML = show
+        ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`
+        : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+});
+
+// ---------------------------------------------------
+//  LOGIN FORM
+// ---------------------------------------------------
+document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    hideAlert('loginAlert');
+
+    const inputVal = document.getElementById('loginEmail').value.trim();
+    const pass     = document.getElementById('loginPassword').value;
+
+    if (!inputVal || !pass) {
+        showAlert('loginAlert', 'يرجى تعبئة جميع الحقول');
+        return;
+    }
+
+    const btn = document.getElementById('loginBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    // -- تحديد نوع الإدخال: رقم مدني أم إيميل --
+    const EMAIL_DOMAIN = 'farouq.school.om';
+    const isEmail = inputVal.includes('@');
+    let loginEmail = inputVal;
+
+    if (!isEmail) {
+        // رقم مدني - نحوّله لإيميل داخلي
+        // نُزيل أي مسافات أو رموز غير رقمية
+        const cleanId = inputVal.replace(/\s+/g,'');
+        loginEmail = `${cleanId}@${EMAIL_DOMAIN}`;
+    }
+    // إذا كان إيميلاً - يُستخدم مباشرة بدون تعديل
+
+    try {
+        const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: pass });
+        if (error) throw error;
+
+        // جلب الدور وحالة الحساب من جدول profiles
+        const { data: profile, error: pErr } = await sb
+            .from('profiles').select('role, is_active')
+            .eq('id', data.user.id).single();
+
+        if (pErr || !profile) {
+            await sb.auth.signOut();
+            throw { code: 'no_profile' };
+        }
+        if (profile.is_active === false) {
+            await sb.auth.signOut();
+            window.location.href = 'login.html?blocked=1';
+            return;
+        }
+
+        sessionStorage.setItem('userId', data.user.id);
+        sessionStorage.setItem('userRole', profile.role);
+
+        const HOME = {
+            admin: 'dashboard.html', teacher: 'teacher-dashboard.html',
+            principal: 'school-principal-dashboard.html', vice_principal: 'school-principal-dashboard.html',
+            vice_admin: 'dashboard.html', supervisor: 'supervisor-dashboard.html',
+            counselor: 'counselor-dashboard.html', psychologist: 'counselor-dashboard.html',
+            career_guide: 'counselor-dashboard.html', lab_sci_tech: 'lab-tech-dashboard.html',
+            resources_spec: 'learning-resources.html', activities_spec: 'activities-dashboard.html',
+            it_admin: 'it-dashboard.html', data_entry: 'data-manager.html',
+            guard: 'late-arrivals.html', absence_super: 'absence-affairs.html',
+            parent: 'parent-dashboard.html', driver: 'driver-dashboard.html',
+            bus_owner: 'bus-owner-dashboard.html',
+        };
+        window.location.href = HOME[profile.role] || 'dashboard.html';
+
+    } catch (err) {
+        const inputType = isEmail ? 'البريد الإلكتروني' : 'الرقم المدني';
+        const MSGS = {
+            'invalid_credentials':     `${inputType} أو كلمة المرور غير صحيحة`,
+            'email_not_confirmed':     'الحساب غير مفعّل - تواصل مع المدير',
+            'user_banned':             'هذا الحساب موقوف - تواصل مع المدير',
+            'over_request_rate_limit': 'محاولات كثيرة - حاول لاحقاً',
+            'no_profile':              'لا توجد صلاحيات لهذا الحساب - تواصل مع المدير',
+        };
+        const offline = err.message && /fetch|network/i.test(err.message);
+        showAlert('loginAlert', offline ? 'تحقق من اتصال الإنترنت' : (MSGS[err.code] || 'حدث خطأ، حاول مرة أخرى'));
+
+        if (err.code === 'invalid_credentials' && (inputVal === 'admin@school2040.com' || inputVal === 'admin')) {
+            setTimeout(() => {
+                if (confirm('حساب المدير غير موجود. هل تريد إنشاؤه الآن؟')) window.location.href = 'setup.html';
+            }, 500);
+        }
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }
+});
+
+// ---------------------------------------------------
+//  FORGOT PASSWORD FORM
+// ---------------------------------------------------
+document.getElementById('forgotForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    hideAlert('forgotAlert');
+
+    const email = document.getElementById('forgotEmail').value.trim();
+    if (!email) {
+        showAlert('forgotAlert', 'يرجى إدخال البريد الإلكتروني');
+        return;
+    }
+
+    const btn = document.getElementById('forgotBtn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+        const { error } = await sb.auth.resetPasswordForEmail(email, {
+            redirectTo: location.origin + location.pathname.replace(/[^/]*$/, '') + 'reset-password.html'
+        });
+        if (error) throw error;
+        showAlert('forgotAlert', 'تم إرسال رابط الاستعادة إلى ' + email, 'success');
+    } catch (err) {
+        const msg = (err.code === 'over_email_send_rate_limit' || err.code === 'over_request_rate_limit')
+            ? 'محاولات كثيرة - حاول بعد قليل'
+            : (err.message && /fetch|network/i.test(err.message) ? 'تحقق من اتصال الإنترنت' : 'حدث خطأ، حاول مرة أخرى');
+        showAlert('forgotAlert', msg);
+    } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+    }
+});
+
+// ---------------------------------------------------
+//  MISC
+// ---------------------------------------------------
+
+// -- فحص رسالة الحساب الموقوف --
+if (new URLSearchParams(window.location.search).get('blocked') === '1') {
+    const alertEl = document.getElementById('loginAlert');
+    if (alertEl) {
+        alertEl.textContent = ' هذا الحساب موقوف - تواصل مع مدير النظام للتفعيل';
+        alertEl.style.display = 'block';
+        alertEl.style.background = 'rgba(255,51,102,.12)';
+        alertEl.style.border = '1px solid rgba(255,51,102,.4)';
+        alertEl.style.color  = 'var(--danger, #ff3366)';
+        alertEl.style.padding = '12px 16px';
+        alertEl.style.borderRadius = '10px';
+        alertEl.style.marginBottom = '12px';
+        alertEl.style.fontWeight = '700';
+    }
+}
+
+// Bounce animation for sent icon
+const style = document.createElement('style');
+style.textContent = '@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-10px)}}';
+document.head.appendChild(style);
+
+// Enter key on email in forgot form focuses password
+document.getElementById('forgotEmail')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('forgotForm').dispatchEvent(new Event('submit')); }
+});
+
+// Input focus glow on hex
+document.querySelectorAll('.fi').forEach(inp => {
+    inp.addEventListener('focus', () => { inp.parentElement.style.filter = 'drop-shadow(0 0 8px rgba(0,242,255,.25))'; });
+    inp.addEventListener('blur',  () => { inp.parentElement.style.filter = ''; });
+});
+</script>
+<script defer src="js/theme-switcher.js?v=2026041810"></script>
+<script defer src="js/pwa-init.js?v=20260425"></script>
+
+
+
+<script>
+/* ── Slideshow ── */
+(function(){
+  var slides=document.querySelectorAll('.bg-slide');
+  if(!slides.length)return;
+  var cur=0;
+  slides[0].classList.add('show');
+  setInterval(function(){
+    slides[cur].classList.remove('show');
+    cur=(cur+1)%slides.length;
+    slides[cur].classList.add('show');
+  },5000);
+})();
+
+/* ── Floating Symbols ── */
+(function(){
+  var wrap=document.getElementById('eduWrap');
+  if(!wrap)return;
+  var SYMS=['E=mc²','π','Σ','√','∞','∫','Δ','α','β','λ','Ω','⚛','','⚡','★','H₂O','DNA','IQ','log','sin','Hz'];
+  var COLS=['rgba(0,242,255,OP)','rgba(123,47,247,OP)','rgba(255,215,0,OP)','rgba(0,255,136,OP)','rgba(255,100,0,OP)'];
+  function rnd(a,b){return a+Math.random()*(b-a);}
+  function spawn(){
+    var el=document.createElement('div');
+    el.className='sym';
+    var op=rnd(.30,.60).toFixed(2);
+    var col=COLS[Math.floor(Math.random()*COLS.length)].replace('OP',op);
+    var fs=Math.round(rnd(20,58))+'px';
+    var dur=rnd(16,34).toFixed(1)+'s';
+    var del=-(rnd(0,12)).toFixed(1)+'s';
+    var x=rnd(2,94).toFixed(1)+'%';
+    var rot=(Math.random()>.5?'':'-')+rnd(4,22).toFixed(0)+'deg';
+    el.style.cssText='font-size:'+fs+';color:'+col+';left:'+x+';--op:'+op+';--r:'+rot+';animation-duration:'+dur+';animation-delay:'+del;
+    el.textContent=SYMS[Math.floor(Math.random()*SYMS.length)];
+    wrap.appendChild(el);
+    setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},(parseFloat(dur)+4)*1000);
+  }
+  for(var i=0;i<16;i++)setTimeout(spawn,i*300);
+  setInterval(spawn,900);
+})();
+
+/* ── View / Alert helpers ── */
+function showView(n){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.remove('active');});
+  var el=document.getElementById('view-'+n);
+  if(el)el.classList.add('active');
+  hideAlert('loginAlert'); hideAlert('forgotAlert');
+}
+function showAlert(id,msg,type){
+  type=type||'error';
+  var box=document.getElementById(id);
+  var icon=document.getElementById(id+'Icon');
+  var msgEl=document.getElementById(id+'Msg');
+  if(!box)return;
+  box.className='alert-box '+type;
+  if(icon) icon.textContent=type==='success'?'✓':'⚠';
+  if(msgEl)msgEl.textContent=msg;
+}
+function hideAlert(id){var box=document.getElementById(id);if(box)box.className='alert-box';}
+
+/* ── Password toggle ── */
+// pw vars declared above
+if(pwToggle){pwToggle.addEventListener('click',function(){
+  var show=pwInput.type==='password';
+  pwInput.type=show?'text':'password';
+  eyeIcon.innerHTML=show
+    ?'<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    :'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+});}
+</script>
+
+
+</body>
+</html>

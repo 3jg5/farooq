@@ -547,7 +547,6 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
         const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: pass });
         if (error) throw error;
 
-        // جلب الدور وحالة الحساب من جدول profiles
         const { data: profile, error: pErr } = await sb
             .from('profiles').select('role, is_active')
             .eq('id', data.user.id).single();
@@ -590,7 +589,6 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
         };
         const offline = err.message && /fetch|network/i.test(err.message);
         showAlert('loginAlert', offline ? 'تحقق من اتصال الإنترنت' : (MSGS[err.code] || 'حدث خطأ، حاول مرة أخرى'));
-
         if (err.code === 'invalid_credentials' && (inputVal === 'admin@school2040.com' || inputVal === 'admin')) {
             setTimeout(() => {
                 if (confirm('حساب المدير غير موجود. هل تريد إنشاؤه الآن؟')) window.location.href = 'setup.html';

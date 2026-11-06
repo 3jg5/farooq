@@ -992,7 +992,6 @@ function renderGallery(items) {
 // ------------------------------------------
 //  SUPABASE DATA LOADER
 // ------------------------------------------
-// تحويل أسماء الأعمدة من snake_case إلى camelCase ليتوافق مع دوال العرض
 function rowToCamel(r) {
   const o = {};
   for (const k in r) {
@@ -1012,7 +1011,6 @@ async function fetchRows(table, orderCol, limit) {
 async function loadPublicContent() {
   document.getElementById('newsTrack').innerHTML =
     Array.from({length:3},()=>`<div class="skel skel-card" style="min-width:calc(33.333% - 14px)"></div>`).join('');
-
   const res = await Promise.allSettled([
     fetchRows('school_news',       'date',       12),
     fetchRows('school_activities', 'date',       12),
